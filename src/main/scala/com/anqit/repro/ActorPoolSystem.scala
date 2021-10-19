@@ -11,50 +11,29 @@ import scala.concurrent.duration.DurationInt
 object ActorPoolSystem extends App {
     ConfigFactory.load()
 
-    val NumActorA: Int = 1 // 7
-    val NumActorB: Int = 1 // 10
-    val NumActorC: Int = 1 // 10
-    val NumActorD: Int = 1
-
     def apply(): Behavior[Nothing] =
         Behaviors.setup[Nothing] { ctx =>
             val deadLetterListener = ctx.spawn(DeadLetterListener(), "dl-listener")
             ctx.system.eventStream ! Subscribe(deadLetterListener)
 
-            (0 until NumActorA).foreach { i =>
-                ctx.spawn(
-                    Behaviors.supervise(ActorA()).onFailure(SupervisorStrategy.restart),
-                    s"actor-a-$i",
-                )
-            }
-            ctx.spawn(Behaviors.supervise(ActorAPool()).onFailure(SupervisorStrategy.restart), "actor-a-actor-pool")
+            val actorA = ctx.spawn(
+                Behaviors.supervise(ActorA()).onFailure(SupervisorStrategy.restart),
+                "actor-a",
+            )
 
-            (0 until NumActorB).foreach { i =>
-                ctx.spawn(
-                    Behaviors.supervise(ActorB()).onFailure(SupervisorStrategy.restart),
-                    s"actor-b-$i",
-                )
-            }
-            ctx.spawn(Behaviors.supervise(ActorBPool()).onFailure(SupervisorStrategy.restart), "actor-b-actor-pool")
+            val actorB = ctx.spawn(
+                Behaviors.supervise(ActorB()).onFailure(SupervisorStrategy.restart),
+                "actor-b",
+            )
 
-            (0 until NumActorC).foreach { i =>
-                ctx.spawn(
-                    Behaviors.supervise(ActorC()).onFailure(SupervisorStrategy.restart),
-                    s"actor-c-$i",
-                )
-            }
-            ctx.spawn(Behaviors.supervise(ActorCPool()).onFailure(SupervisorStrategy.restart), "actor-c-actor-pool")
-
-            (0 until NumActorD).foreach { i =>
-                ctx.spawn(
-                    Behaviors.supervise(ActorD(interval = 1.minute)).onFailure(SupervisorStrategy.restart),
-                    s"actor-d-$i",
-                )
-            }
+            val actorC = ctx.spawn(
+                Behaviors.supervise(ActorC(Some(actorA), Some(actorB))).onFailure(SupervisorStrategy.restart),
+                "actor-c",
+            )
 
             ctx.spawn(
-                Behaviors.supervise(ActorDPool()).onFailure(SupervisorStrategy.restart),
-                "actor-d-actor-pool",
+                Behaviors.supervise(ActorD(Some(actorC), interval = 5.seconds)).onFailure(SupervisorStrategy.restart),
+                "actor-d",
             )
 
             Behaviors.empty

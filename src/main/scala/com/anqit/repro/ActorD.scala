@@ -67,7 +67,7 @@ object ActorD {
                 Behaviors.same
 
             case ActorDCommand(result) =>
-                ctx.log.info(s"got a $result")
+                ctx.log.info(s"got result $result")
                 actorC ! ActorC.ActorCCommand(result)
 
                 Behaviors.same
